@@ -59,6 +59,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define MAX_DOMINATION_POINTS 6
 #define MAX_DOMINATION_POINTS_NAMES 20
 
+// leilei - q scale game cvar
+
+#define QUACK_SCALE		0.85
+#define	QUACK_VIEWHEIGHT	22
+
 //
 // config strings are a general means of communicating variable length strings
 // from the server to all connected clients.
@@ -174,7 +179,8 @@ typedef enum {
 #define PMF_SCOREBOARD		8192	// spectate as a scoreboard
 #define PMF_INVULEXPAND		16384	// invulnerability sphere set to full size
 //Elimination players cannot fire in warmup
-#define PMF_ELIMWARMUP		32768	//Bit 15
+#define PMF_ELIMWARMUP		32768	//I hope this is more than 16 signed bits! (it's not but it just works anyway...)
+//Don't add anymore, I have already set the sign bit :-(
 
 #define	PMF_ALL_TIMES	(PMF_TIME_WATERJUMP|PMF_TIME_LAND|PMF_TIME_KNOCKBACK)
 
@@ -231,12 +237,12 @@ void Pmove (pmove_t *pmove);
 typedef enum {
 	STAT_HEALTH,
 	STAT_HOLDABLE_ITEM,
+	STAT_PERSISTANT_POWERUP,
 	STAT_WEAPONS,					// 16 bit fields
 	STAT_ARMOR,				
 	STAT_DEAD_YAW,					// look this direction when dead (FIXME: get rid of?)
 	STAT_CLIENTS_READY,				// bit mask of clients wishing to exit the intermission (FIXME: configstring?)
-	STAT_MAX_HEALTH,					// health / armor limit, changable by handicap
-	STAT_PERSISTANT_POWERUP
+	STAT_MAX_HEALTH					// health / armor limit, changable by handicap
 } statIndex_t;
 
 
@@ -552,6 +558,23 @@ typedef enum {
 	TORSO_AFFIRMATIVE,
 	TORSO_NEGATIVE,
 
+	TORSO_RUN, 	// run with gun
+	TORSO_RUN2, 	// run with gauntlet
+	TORSO_RUN3, 	// run with flag in left hand, gun in right
+	TORSO_STAND3, 	// stand /w flag in left hand (if has flag)
+	TORSO_JUMP, 	// jump with gun
+	TORSO_JUMP2, 	// jump with gauntlet
+	TORSO_JUMP3, 	// jump with flag
+	TORSO_FALL, 	// fall with gun
+	TORSO_FALL2, 	// fall with gauntlet
+	TORSO_FALL3, 	// fall with flag
+	TORSO_TALK, 	// fall with flag
+//	TORSO_AIMUP, 	// aiming upward
+//	TORSO_AIMDOWN, 	// aiming downward
+	TORSO_STRAFE, 	// strafing sideways
+	LEGS_STRAFE_LEFT, // strafing to the player's left
+	LEGS_STRAFE_RIGHT, // strafing to the player's right
+
 //	BOTH_POSE,		// leilei - crappy ui posing code trying
 
 	MAX_ANIMATIONS,
@@ -819,6 +842,6 @@ qboolean	BG_PlayerTouchesItem( playerState_t *ps, entityState_t *item, int atTim
 
 //KK-OAX
 //bg_misc.c
-const char *BG_TeamName( team_t team );
+char *BG_TeamName( team_t team );
 
 #endif

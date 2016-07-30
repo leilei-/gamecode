@@ -1,4 +1,4 @@
--o "../../missionpack/vm/qagame.qvm"
+-o "../../../qagame"
 g_main
 ..\g_syscalls
 bg_misc

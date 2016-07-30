@@ -223,7 +223,7 @@ YourTeamMessage
 ==================
 */
 
-void YourTeamMessage( const gentity_t *ent) {
+void YourTeamMessage( gentity_t *ent) {
     int team = level.clients[ent-g_entities].sess.sessionTeam;
 
     switch(team) {
@@ -275,7 +275,7 @@ void ChallengeMessage(gentity_t *ent, int challenge) {
         if ( level.warmupTime != 0)
 		return; //We don't send anything doring warmup
 	trap_SendServerCommand( ent-g_entities, va("ch %u", challenge) );
-        G_LogPrintf( "Challenge: %li %i %i: Client %li got award %i\n",ent-g_entities,challenge,1,ent-g_entities,challenge);
+        G_LogPrintf( "Challenge: %i %i %i: Client %i got award %i\n",ent-g_entities,challenge,1,ent-g_entities,challenge);
 }
 
 /*
@@ -362,32 +362,6 @@ char	*ConcatArgs( int start ) {
 	return line;
 }
 
-
-/*
-==================
-StringIsInteger
-==================
-*/
-qboolean StringIsInteger( const char * s ) {
-	int			i;
-	int			len;
-	qboolean	foundDigit;
-
-	len = strlen( s );
-	foundDigit = qfalse;
-
-	for ( i=0 ; i < len ; i++ ) {
-		if ( !isdigit( s[i] ) ) {
-			return qfalse;
-		}
-
-		foundDigit = qtrue;
-	}
-
-	return foundDigit;
-}
-
-
 /*
 ==================
 ClientNumberFromString
@@ -401,15 +375,20 @@ int ClientNumberFromString( gentity_t *to, char *s ) {
 	int			idnum;
     char        cleanName[MAX_STRING_CHARS];
 
-	// numeric values could be slot numbers
-	if ( StringIsInteger( s ) ) {
+	// numeric values are just slot numbers
+	if (s[0] >= '0' && s[0] <= '9') {
 		idnum = atoi( s );
-		if ( idnum >= 0 && idnum < level.maxclients ) {
-			cl = &level.clients[idnum];
-			if ( cl->pers.connected == CON_CONNECTED ) {
-				return idnum;
-			}
+		if ( idnum < 0 || idnum >= level.maxclients ) {
+			trap_SendServerCommand( to-g_entities, va("print \"Bad client slot: %i\n\"", idnum));
+			return -1;
 		}
+
+		cl = &level.clients[idnum];
+		if ( cl->pers.connected != CON_CONNECTED ) {
+			trap_SendServerCommand( to-g_entities, va("print \"Client %i is not active\n\"", idnum));
+			return -1;
+		}
+		return idnum;
 	}
 
 	// check for a name match
@@ -1062,16 +1041,6 @@ void Cmd_FollowCycle_f( gentity_t *ent ) {
 		G_Error( "Cmd_FollowCycle_f: bad dir %i", dir );
 	}
 
-	// if dedicated follow client, just switch between the two auto clients
-	if (ent->client->sess.spectatorClient < 0) {
-		if (ent->client->sess.spectatorClient == -1) {
-			ent->client->sess.spectatorClient = -2;
-		} else if (ent->client->sess.spectatorClient == -2) {
-			ent->client->sess.spectatorClient = -1;
-		}
-		return;
-	}
-
 	clientnum = ent->client->sess.spectatorClient;
 	original = clientnum;
         count = 0;
@@ -1187,7 +1156,7 @@ void G_Say( gentity_t *ent, gentity_t *target, int mode, const char *chatText ) 
 		color = COLOR_CYAN;
 		break;
 	case SAY_TELL:
-		if (target && target->inuse && target->client && g_gametype.integer >= GT_TEAM && g_ffa_gt != 1 &&
+		if (target && g_gametype.integer >= GT_TEAM && g_ffa_gt != 1 &&
 			target->client->sess.sessionTeam == ent->client->sess.sessionTeam &&
 			Team_GetLocationMsg(ent, location, sizeof(location)))
 			Com_sprintf (name, sizeof(name), EC"[%s%c%c"EC"] (%s)"EC": ", ent->client->pers.netname, Q_COLOR_ESCAPE, COLOR_WHITE, location );
@@ -1275,14 +1244,13 @@ static void Cmd_Tell_f( gentity_t *ent ) {
 	char		*p;
 	char		arg[MAX_TOKEN_CHARS];
 
-	if ( trap_Argc () < 3 ) {
-		trap_SendServerCommand( ent-g_entities, "print \"Usage: tell <player id> <message>\n\"" );
+	if ( trap_Argc () < 2 ) {
 		return;
 	}
 
 	trap_Argv( 1, arg, sizeof( arg ) );
-	targetNum = ClientNumberFromString( ent, arg );
-	if ( targetNum == -1 ) {
+	targetNum = atoi( arg );
+	if ( targetNum < 0 || targetNum >= level.maxclients ) {
 		return;
 	}
 
@@ -1536,45 +1504,24 @@ static char	*gc_orders[] = {
 	"report"
 };
 
-static const int numgc_orders = ARRAY_LEN( gc_orders );
-
 void Cmd_GameCommand_f( gentity_t *ent ) {
-	int			targetNum;
-	gentity_t	*target;
-	int			order;
-	char		arg[MAX_TOKEN_CHARS];
- 
-	if ( trap_Argc() != 3 ) {
-		trap_SendServerCommand( ent-g_entities, va( "print \"Usage: gc <player id> <order 0-%d>\n\"", numgc_orders - 1 ) );
+	int		player;
+	int		order;
+	char	str[MAX_TOKEN_CHARS];
+
+	trap_Argv( 1, str, sizeof( str ) );
+	player = atoi( str );
+	trap_Argv( 2, str, sizeof( str ) );
+	order = atoi( str );
+
+	if ( player < 0 || player >= MAX_CLIENTS ) {
 		return;
 	}
- 
-	trap_Argv( 1, arg, sizeof( arg ) );
-	targetNum = ClientNumberFromString( ent, arg );
-	if ( targetNum == -1 ) {
- 		return;
- 	}
-
-	target = &g_entities[targetNum];
-	if ( !target || !target->inuse || !target->client ) {
- 		return;
- 	}
-
-	trap_Argv( 2, arg, sizeof( arg ) );
-	order = atoi( arg );
-
-	if ( order < 0 || order >= numgc_orders ) {
-		trap_SendServerCommand( ent-g_entities, va("print \"Bad order: %i\n\"", order));
+	if ( order < 0 || order > sizeof(gc_orders)/sizeof(char *) ) {
 		return;
 	}
-
-	G_LogPrintf( "tell: %s to %s: %s\n", ent->client->pers.netname, target->client->pers.netname, gc_orders[order] );
-	G_Say( ent, target, SAY_TELL, gc_orders[order] );
-	// don't tell to the player self if it was already directed to this player
-	// also don't send the chat back to a bot
-	if ( ent != target && !(ent->r.svFlags & SVF_BOT)) {
-		G_Say( ent, ent, SAY_TELL, gc_orders[order] );
-	}
+	G_Say( ent, &g_entities[player], SAY_TELL, gc_orders[order] );
+	G_Say( ent, ent, SAY_TELL, gc_orders[order] );
 }
 
 /*
@@ -1760,7 +1707,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
                     Com_sprintf( level.voteString, sizeof( level.voteString ), "%s %d; map_restart; set nextmap \"%s\"", arg1, i,s );
                     Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Change gametype to: %s?", gameNames[i] );
                 } else {
-                    Com_sprintf( level.voteString, sizeof( level.voteString ), "%s %d; map_restart", arg1, i );
+                    Com_sprintf( level.voteString, sizeof( level.voteString ), "%s %d; mao_restart", arg1, i );
                     Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Change gametype to: %s?", gameNames[i] );
                 }
 	} else if ( !Q_stricmp( arg1, "map" ) ) {
@@ -1865,7 +1812,7 @@ void Cmd_CallVote_f( gentity_t *ent ) {
 		Com_sprintf( level.voteDisplayString, sizeof( level.voteDisplayString ), "Shuffle teams?" );
         } else if ( !Q_stricmp( arg1, "kick" ) ) {
                 i = 0;
-                while( !(g_entities+i) || !((g_entities+i)->client) || Q_stricmp(arg2,(g_entities+i)->client->pers.netname)) {
+                while(Q_stricmp(arg2,(g_entities+i)->client->pers.netname)) {
                     //Not client i, try next
                     i++;
                     if(i>=MAX_CLIENTS){ //Only numbers <128 is clients

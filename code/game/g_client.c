@@ -55,6 +55,14 @@ void SP_info_player_start(gentity_t *ent) {
 	SP_info_player_deathmatch( ent );
 }
 
+//Three for Double_D
+void SP_info_player_dd(gentity_t *ent) {
+}
+void SP_info_player_dd_red(gentity_t *ent) {
+}
+void SP_info_player_dd_blue(gentity_t *ent) {
+}
+
 //One for Standard Domination, not really a player spawn point
 void SP_domination_point(gentity_t *ent) {
 }
@@ -1780,10 +1788,7 @@ void ClientSpawn(gentity_t *ent) {
 	} else if (g_gametype.integer == GT_DOUBLE_D) {
 		//Double Domination uses special spawn points:
 		spawnPoint = SelectDoubleDominationSpawnPoint (client->sess.sessionTeam, spawn_origin, spawn_angles);
-	} else if (g_gametype.integer == GT_DOMINATION) {
-		//Domination uses special spawn points:
-		spawnPoint = SelectDominationSpawnPoint (client->sess.sessionTeam, spawn_origin, spawn_angles);
-	} else if (g_gametype.integer >= GT_CTF && g_ffa_gt==0 ) {
+	} else if (g_gametype.integer >= GT_CTF && g_ffa_gt==0 && g_gametype.integer!= GT_DOMINATION) {
 		// all base oriented team games use the CTF spawn points
 		spawnPoint = SelectCTFSpawnPoint ( 
 						client->sess.sessionTeam, 
@@ -1852,7 +1857,7 @@ void ClientSpawn(gentity_t *ent) {
 	accuracy_shots = client->accuracy_shots;
     memcpy(accuracy,client->accuracy,sizeof(accuracy));
 
-    memcpy(persistant,client->ps.persistant,sizeof(persistant));
+    memcpy(persistant,client->ps.persistant,MAX_PERSISTANT*sizeof(int));
 	eventSequence = client->ps.eventSequence;
 
 	Com_Memset (client, 0, sizeof(*client));
@@ -1864,11 +1869,16 @@ void ClientSpawn(gentity_t *ent) {
 //	client->areabits = savedAreaBits;
 	client->accuracy_hits = accuracy_hits;
 	client->accuracy_shots = accuracy_shots;
-	memcpy(client->accuracy,accuracy,sizeof(accuracy));
+        for( i = 0 ; i < WP_NUM_WEAPONS ; i++ ){
+		client->accuracy[i][0] = accuracy[i][0];
+		client->accuracy[i][1] = accuracy[i][1];
+	}
 
 	client->lastkilled_client = -1;
 
-	memcpy(client->ps.persistant,persistant,sizeof(persistant));
+	for ( i = 0 ; i < MAX_PERSISTANT ; i++ ) {
+		client->ps.persistant[i] = persistant[i];
+	}
 	client->ps.eventSequence = eventSequence;
 	// increment the spawncount so the client will detect the respawn
 	client->ps.persistant[PERS_SPAWN_COUNT]++;

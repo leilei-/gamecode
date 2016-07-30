@@ -69,6 +69,8 @@ typedef enum {
 
 #define SP_PODIUM_MODEL		"models/mapobjects/podium/podium4.md3"
 
+extern int enableq;
+
 //============================================================================
 
 typedef struct gentity_s gentity_t;
@@ -305,7 +307,6 @@ typedef struct {
     int         nameChangeTime;
     int         nameChanges;
     
-    qboolean    cannotWin; // Set to true if the players joins a leading team or the team with the most players
 } clientPersistant_t;
 
 //unlagged - backward reconciliation #1
@@ -556,9 +557,6 @@ typedef struct {
     int healthRedObelisk; //health in percent
     int healthBlueObelisk; //helth in percent
     qboolean MustSendObeliskHealth; //Health has changed
-	
-    int		max_humanplayers;
-	int		lastActiveTime; ///< Updated as long as there are at least one human player on the server
      
 } level_locals_t;
 
@@ -655,7 +653,7 @@ void	G_SetMovedir ( vec3_t angles, vec3_t movedir);
 
 void	G_InitGentity( gentity_t *e );
 gentity_t	*G_Spawn (void);
-gentity_t *G_TempEntity( const vec3_t origin, int event );
+gentity_t *G_TempEntity( vec3_t origin, int event );
 void	G_Sound( gentity_t *ent, int channel, int soundIndex );
 
 //KK-OAX For Playing Sounds Globally
@@ -731,12 +729,6 @@ void trigger_teleporter_touch (gentity_t *self, gentity_t *other, trace_t *trace
 void TeleportPlayer( gentity_t *player, vec3_t origin, vec3_t angles );
 void DropPortalSource( gentity_t *ent );
 void DropPortalDestination( gentity_t *ent );
-/**
- * Finds the minimum count of spawnpoints for spawnning players
- * If there are more players than this count, telefragging may occour.
- * @return number of spawnpoints for each type of spawning (initial spawn, respawn, red, blue)
- */
-int MinSpawnpointCount( void );
 
 
 //
@@ -819,7 +811,7 @@ void G_SetStats (gentity_t *ent);
 // Also another place /Sago
 
 void DoubleDominationScoreTimeMessage( gentity_t *ent );
-void YourTeamMessage( const gentity_t *ent);
+void YourTeamMessage( gentity_t *ent);
 void AttackingTeamMessage( gentity_t *ent );
 void ObeliskHealthMessage( void );
 void DeathmatchScoreboardMessage (gentity_t *client);
@@ -844,14 +836,14 @@ void CheckTeamLeader( int team );
 void G_RunThink (gentity_t *ent);
 void AddTournamentQueue(gclient_t *client);
 void ExitLevel( void );
-void QDECL G_LogPrintf( const char *fmt, ... ) __attribute__((format (printf, 1, 2)));
+void QDECL G_LogPrintf( const char *fmt, ... );
 void SendScoreboardMessageToAllClients( void );
 void SendEliminationMessageToAllClients( void );
 void SendDDtimetakenMessageToAllClients( void );
 void SendDominationPointsStatusMessageToAllClients( void );
 void SendYourTeamMessageToTeam( team_t team );
-void QDECL G_Printf( const char *fmt, ... ) __attribute__((format (printf, 1, 2)));
-void QDECL G_Error( const char *fmt, ... ) __attribute__((noreturn,format (printf, 1, 2)));
+void QDECL G_Printf( const char *fmt, ... );
+void QDECL G_Error( const char *fmt, ... ) __attribute__((noreturn));
 //KK-OAX Made Accessible for g_admin.c
 void LogExit( const char *string ); 
 void CheckTeamVote( int team );
@@ -875,9 +867,9 @@ void G_RunClient( gentity_t *ent );
 //
 // g_team.c
 //
-qboolean OnSameTeam( const gentity_t *ent1, const gentity_t *ent2 );
-void Team_CheckDroppedItem( const gentity_t *dropped );
-qboolean CheckObeliskAttack( const gentity_t *obelisk, const gentity_t *attacker );
+qboolean OnSameTeam( gentity_t *ent1, gentity_t *ent2 );
+void Team_CheckDroppedItem( gentity_t *dropped );
+qboolean CheckObeliskAttack( gentity_t *obelisk, gentity_t *attacker );
 void ShuffleTeams(void);
 //KK-OAX Added for Command Handling Changes (r24)
 team_t G_TeamFromString( char *str );
@@ -926,15 +918,14 @@ void BotInterbreedEndMatch( void );
 // g_playerstore.c
 //
 
-void LogAcc(int clientNum);
 void PlayerStoreInit( void );
-void PlayerStore_store(const char* guid, playerState_t ps);
-void PlayerStore_restore(const char* guid, playerState_t *ps);
+void PlayerStore_store(char* guid, playerState_t ps);
+void PlayerStore_restore(char* guid, playerState_t *ps);
 
 //
 // g_vote.c
 //
-int allowedVote(const char *commandStr);
+int allowedVote(char *commandStr);
 void CheckVote( void );
 void CountVotes( void );
 void ClientLeaving(int clientNumber);
@@ -961,8 +952,8 @@ typedef struct {
 extern char custom_vote_info[1024];
 
 extern t_mappage getMappage(int page);
-extern int allowedMap(const char *mapname);
-extern int allowedGametype(const char *gametypeStr);
+extern int allowedMap(char *mapname);
+extern int allowedGametype(char *gametypeStr);
 extern int allowedTimelimit(int limit);
 extern int allowedFraglimit(int limit);
 extern int VoteParseCustomVotes( void );
@@ -1002,6 +993,7 @@ extern	vmCvar_t	g_cheats;
 extern	vmCvar_t	g_maxclients;			// allow this many total, including spectators
 extern	vmCvar_t	g_maxGameClients;		// allow this many active
 extern	vmCvar_t	g_restarted;
+
 
 extern	vmCvar_t	g_dmflags;
 extern	vmCvar_t	g_videoflags;
@@ -1055,6 +1047,8 @@ extern	vmCvar_t	g_singlePlayer;
 extern	vmCvar_t	g_redteam;
 extern	vmCvar_t	g_blueteam;
 #endif
+extern	vmCvar_t	g_enableFS;		// leilei - map makes player models load
+extern	vmCvar_t	cg_enableQ;		// leilei - map changes player/weapons scale (for q1 adaptations)
 extern	vmCvar_t	g_enableDust;
 extern	vmCvar_t	g_enableBreath;
 extern	vmCvar_t	g_proxMineTimeout;
@@ -1400,3 +1394,10 @@ void Svcmd_MessageWrapper( void );
 
 #include "g_killspree.h"
 #include "g_admin.h"
+
+// leilei - monsters
+
+void monster_die (gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int damage, int mod);
+
+
+

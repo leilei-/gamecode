@@ -1,4 +1,4 @@
--o "../../baseoa/vm/cgame"
+-o "../../../cgame"
 cg_main
 ..\cg_syscalls
 cg_challenges

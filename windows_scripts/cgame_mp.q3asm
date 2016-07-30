@@ -1,4 +1,4 @@
--o "../../missionpack/vm/cgame"
+-o "../../../cgame"
 cg_main
 ..\cg_syscalls
 cg_challenges
@@ -12,6 +12,7 @@ cg_event
 cg_info
 cg_localents
 cg_marks
+cg_lfx
 cg_players
 cg_playerstate
 cg_predict

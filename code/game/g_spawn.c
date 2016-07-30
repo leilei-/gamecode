@@ -129,6 +129,10 @@ typedef struct {
 void SP_info_player_start (gentity_t *ent);
 void SP_info_player_deathmatch (gentity_t *ent);
 void SP_info_player_intermission (gentity_t *ent);
+//For Double Domination:
+void SP_info_player_dd (gentity_t *ent);
+void SP_info_player_dd_red (gentity_t *ent);
+void SP_info_player_dd_blue (gentity_t *ent);
 //standard domination:
 void SP_domination_point ( gentity_t *ent);
 
@@ -195,6 +199,9 @@ void SP_team_neutralobelisk( gentity_t *ent );
 
 void SP_item_botroam( gentity_t *ent ) { }
 
+// leilei - monsters
+void SP_monster_puncher(gentity_t *ent);
+
 spawn_t	spawns[] = {
 	// info entities don't do anything at all, but provide positional
 	// information for things controlled by other processes
@@ -202,13 +209,11 @@ spawn_t	spawns[] = {
 	{"info_player_deathmatch", SP_info_player_deathmatch},
 	{"info_player_intermission", SP_info_player_intermission},
 //Double Domination player spawn:
-	{"info_player_dd", SP_info_player_deathmatch},
-	{"info_player_dd_red", SP_info_player_deathmatch},
-	{"info_player_dd_blue", SP_info_player_deathmatch},
+	{"info_player_dd", SP_info_player_dd},
+        {"info_player_dd_red", SP_info_player_dd_red},
+        {"info_player_dd_blue", SP_info_player_dd_blue},
 //Standard Domination point spawn:
 	{"domination_point", SP_domination_point},
-	{"info_player_dom_red", SP_info_player_deathmatch},
-	{"info_player_dom_blue", SP_info_player_deathmatch},
 
 
 	{"info_null", SP_info_null},
@@ -276,6 +281,11 @@ spawn_t	spawns[] = {
 	{"team_neutralobelisk", SP_team_neutralobelisk},
 
 	{"item_botroam", SP_item_botroam},
+
+	// leilei - monsters test
+	{"monster_army", SP_monster_puncher},
+	{"monster_dog", SP_monster_puncher},
+	{"monster_knight", SP_monster_puncher},
 
 	{NULL, 0}
 };
@@ -630,11 +640,17 @@ void SP_worldspawn( void ) {
 	G_SpawnString( "gravity", "800", &s );
 	trap_Cvar_Set( "g_gravity", s );
 
+	G_SpawnString( "enableFS", "0", &s );
+	trap_Cvar_Set( "g_enableFS", s );
+
 	G_SpawnString( "enableDust", "0", &s );
 	trap_Cvar_Set( "g_enableDust", s );
 
 	G_SpawnString( "enableBreath", "0", &s );
 	trap_Cvar_Set( "g_enableBreath", s );
+
+	G_SpawnString( "enableQ", "0", &s );
+	trap_Cvar_Set( "g_enableQ", s );
 
 	g_entities[ENTITYNUM_WORLD].s.number = ENTITYNUM_WORLD;
         g_entities[ENTITYNUM_WORLD].r.ownerNum = ENTITYNUM_NONE;

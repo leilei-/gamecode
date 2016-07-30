@@ -38,6 +38,8 @@ typedef struct {
 gentity_t		g_entities[MAX_GENTITIES];
 gclient_t		g_clients[MAX_CLIENTS];
 
+extern int	enableQ;
+
 vmCvar_t	g_gametype;
 vmCvar_t	g_dmflags;
 vmCvar_t        g_videoflags;
@@ -102,6 +104,8 @@ vmCvar_t	g_blueteam;
 vmCvar_t	g_singlePlayer;
 #endif
 vmCvar_t	g_enableDust;
+vmCvar_t	cg_enableQ;		// leilei
+vmCvar_t	g_enableFS;		// leilei
 vmCvar_t	g_enableBreath;
 vmCvar_t	g_proxMineTimeout;
 vmCvar_t	g_music;
@@ -197,9 +201,6 @@ vmCvar_t        g_maxNameChanges;
 
 vmCvar_t        g_timestamp_startgame;
 
-vmCvar_t		g_execute_gametype_script;
-vmCvar_t		g_emptyCommand;
-vmCvar_t		g_emptyTime;
 
 // bk001129 - made static to avoid aliasing
 static cvarTable_t		gameCvarTable[] = {
@@ -210,6 +211,7 @@ static cvarTable_t		gameCvarTable[] = {
 	{ NULL, "gamename", GAMEVERSION , CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 	{ NULL, "gamedate", __DATE__ , CVAR_ROM, 0, qfalse  },
 	{ &g_restarted, "g_restarted", "0", CVAR_ROM, 0, qfalse  },
+	{ NULL, "sv_mapname", "", CVAR_SERVERINFO | CVAR_ROM, 0, qfalse  },
 
 	// latched vars
 	{ &g_gametype, "g_gametype", "0", CVAR_SERVERINFO | CVAR_USERINFO | CVAR_LATCH, 0, qfalse  },
@@ -290,11 +292,13 @@ static cvarTable_t		gameCvarTable[] = {
 
 	{ &g_cubeTimeout, "g_cubeTimeout", "30", 0, 0, qfalse },
         #ifdef MISSIONPACK
-	{ &g_redteam, "g_redteam", "Stroggs", CVAR_ARCHIVE | CVAR_SERVERINFO | CVAR_USERINFO , 0, qtrue, qtrue },
-	{ &g_blueteam, "g_blueteam", "Pagans", CVAR_ARCHIVE | CVAR_SERVERINFO | CVAR_USERINFO , 0, qtrue, qtrue  },
+	{ &g_redteam, "g_redteam", "Blue", CVAR_ARCHIVE | CVAR_SERVERINFO | CVAR_USERINFO , 0, qtrue, qtrue },
+	{ &g_blueteam, "g_blueteam", "Red", CVAR_ARCHIVE | CVAR_SERVERINFO | CVAR_USERINFO , 0, qtrue, qtrue  },
 	{ &g_singlePlayer, "ui_singlePlayerActive", "", 0, 0, qfalse, qfalse  },
         #endif
 
+	{ &g_enableFS, "g_enableFS", "0", CVAR_SERVERINFO, 0, qtrue, qfalse },		// leilei - bikinis
+	{ &cg_enableQ, "g_enableQ", "0", CVAR_SERVERINFO, 0, qtrue, qfalse },		// leilei - q scale
 	{ &g_enableDust, "g_enableDust", "0", CVAR_SERVERINFO, 0, qtrue, qfalse },
 	{ &g_enableBreath, "g_enableBreath", "0", CVAR_SERVERINFO, 0, qtrue, qfalse },
 	{ &g_proxMineTimeout, "g_proxMineTimeout", "20000", 0, 0, qfalse },
@@ -399,10 +403,9 @@ static cvarTable_t		gameCvarTable[] = {
 	    { &g_minNameChangePeriod, "g_minNameChangePeriod", "10", 0, 0, qfalse},
         { &g_maxNameChanges, "g_maxNameChanges", "50", 0, 0, qfalse},
 
-        { &g_timestamp_startgame, "g_timestamp", "0001-01-01 00:00:00", CVAR_SERVERINFO, 0, qfalse},
-		{ &g_execute_gametype_script, "g_egs", "0", CVAR_ROM, 0, qfalse },
-		{ &g_emptyCommand, "g_emptyCommand", "map_restart", CVAR_ARCHIVE, 0, qfalse},
-		{ &g_emptyTime, "g_emptytime", "0", CVAR_ARCHIVE, 0, qfalse}
+        { &g_timestamp_startgame, "g_timestamp", "0001-01-01 00:00:00", CVAR_SERVERINFO, 0, qfalse}
+
+
         
 };
 
@@ -414,8 +417,6 @@ void G_InitGame( int levelTime, int randomSeed, int restart );
 void G_RunFrame( int levelTime );
 void G_ShutdownGame( int restart );
 void CheckExitRules( void );
-static void WriteAccForAllClients( void );
-static void SendVictoryChallenge( void );
 
 
 /*
@@ -613,11 +614,6 @@ void G_UpdateCvars( void ) {
 
 			if ( cv->modificationCount != cv->vmCvar->modificationCount ) {
 				cv->modificationCount = cv->vmCvar->modificationCount;
-				
-				if(cv->vmCvar == &g_gametype) {
-					//gametype modified
-					trap_Cvar_Set("g_egs","1");
-				}
 
 				if ( cv->trackChange ) {
 					trap_SendServerCommand( -1, va("print \"Server: %s changed to %s\n\"", 
@@ -683,7 +679,7 @@ void G_UpdateCvars( void ) {
 /*
  Sets the cvar g_timestamp. Return 0 if success or !0 for errors.
  */
-static int G_UpdateTimestamp( void ) {
+int G_UpdateTimestamp( void ) {
     int ret = 0;
     qtime_t timestamp;
     ret = trap_RealTime(&timestamp);
@@ -694,36 +690,6 @@ static int G_UpdateTimestamp( void ) {
     return ret;
 }
 
-/**
- * Runs a script of it exists
- * @param script The script that is to be exec'ed
- * @return 0 if the script ran, 1 if it did not exist
- */
-static int G_RunScript( const char* script ) {
-	fileHandle_t	file; 
-	char buffer[100];
-	Q_snprintf(buffer,sizeof(buffer),"%s",script);
-	Q_StrToLower(buffer);
-	G_LogPrintf("Looking for: %s\n",buffer);
-	trap_FS_FOpenFile(buffer,&file,FS_READ);
-    if(!file) {
-        return 1; //script does not exist
-	}
-    trap_FS_FCloseFile(file);
-	Q_snprintf(buffer,sizeof(buffer),"exec %s;\n",script);
-	Q_StrToLower(buffer);
-	trap_SendConsoleCommand( EXEC_APPEND, buffer );
-	return 0;
-}
-
-static int G_CheckGametypeScripts( void ) {
-	if(g_execute_gametype_script.integer) {
-		G_RunScript(va("gametype_%i.cfg",g_gametype.integer));
-		trap_Cvar_Set("g_egs","0"); //Don't run again on next restart
-	}
-	return 0;
-}
-
 /*
 ============
 G_InitGame
@@ -732,7 +698,6 @@ G_InitGame
 */
 void G_InitGame( int levelTime, int randomSeed, int restart ) {
 	int					i;
-	char	mapname[MAX_CVAR_VALUE_STRING];
 
         
         G_Printf ("------- Game Initialization -------\n");
@@ -781,7 +746,7 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
 			G_LogPrintf("------------------------------------------------------------\n" );
 			G_LogPrintf("InitGame: %s\n", serverinfo );
-                        G_LogPrintf("Info: ServerInfo length: %ld of %d\n", strlen(serverinfo), MAX_INFO_STRING );
+                        G_LogPrintf("Info: ServerInfo length: %d of %d\n", strlen(serverinfo), MAX_INFO_STRING );
 		}
 	} else {
 		G_Printf( "Not logging to disk.\n" );
@@ -914,15 +879,6 @@ void G_InitGame( int levelTime, int randomSeed, int restart ) {
 
             trap_Cvar_Set("voteflags",va("%i",voteflags));
         }
-		
-		G_CheckGametypeScripts();
-		
-		trap_Cvar_VariableStringBuffer("mapname",mapname,sizeof(mapname));
-		
-		if(G_RunScript(va("mapscripts/g_%s.cfg",mapname)))
-			G_RunScript("mapscripts/g_default.cfg");
-		if(G_RunScript(va("mapscripts/g_%s_%i.cfg",mapname,g_gametype.integer)))
-			G_RunScript(va("mapscripts/g_default_%i.cfg",g_gametype.integer) );
 }
 
 
@@ -933,7 +889,7 @@ G_ShutdownGame
 =================
 */
 void G_ShutdownGame( int restart ) {
-	G_Printf ("==== ShutdownGame ====\n");
+        G_Printf ("==== ShutdownGame ====\n");
 
 	if ( level.logFile ) {
 		G_LogPrintf("ShutdownGame:\n" );
@@ -1222,7 +1178,7 @@ void CalculateRanks( void ) {
 	level.numConnectedClients = 0;
 	level.numNonSpectatorClients = 0;
 	level.numPlayingClients = 0;
-	humanplayers = 0; // don't count bots
+        humanplayers = 0; // don't count bots
 	for ( i = 0; i < TEAM_NUM_TEAMS; i++ ) {
 		level.numteamVotingClients[i] = 0;
 	}
@@ -1322,10 +1278,6 @@ void CalculateRanks( void ) {
         
         if(g_humanplayers.integer != humanplayers) //Presume all spectators are humans!
             trap_Cvar_Set( "g_humanplayers", va("%i", humanplayers) );
-	if(humanplayers > level.max_humanplayers) {
-		G_LogPrintf( "Info: There has been at least %i humans now\n", humanplayers );
-	    level.max_humanplayers = humanplayers;
-	}
 }
 
 
@@ -1354,89 +1306,6 @@ void SendScoreboardMessageToAllClients( void ) {
 			EliminationMessage( g_entities + i );
 		}
 	}
-}
-
-static void WriteAccForAllClients( void ) {
-	int		i;
-
-	for ( i = 0 ; i < level.maxclients ; i++ ) {
-		if ( level.clients[ i ].pers.connected == CON_CONNECTED ) {
-			LogAcc(i);
-		}
-	}
-}
-
-static void SendVictoryChallenge( void ) {
-	int		i;
-	int		award = 0;
-	gclient_t		*cl;
-	
-	if(level.max_humanplayers < 2 || level.hadBots)
-		return;
-	
-	switch(g_gametype.integer) {
-		case GT_FFA:
-			award = GAMETYPES_FFA_WINS;
-			break;
-		case GT_TOURNAMENT:
-			award = GAMETYPES_TOURNEY_WINS;
-			break;
-		case GT_LMS:
-			award = GAMETYPES_LMS_WINS;
-			break;
-		case GT_CTF:
-			award = GAMETYPES_CTF_WINS;
-			break;
-		case GT_1FCTF:
-			award = GAMETYPES_1FCTF_WINS;
-			break;
-		case GT_OBELISK:
-			award = GAMETYPES_OVERLOAD_WINS;
-			break;
-		case GT_HARVESTER:
-			award = GAMETYPES_HARVESTER_WINS;
-			break;
-		case GT_ELIMINATION:
-			award = GAMETYPES_ELIMINATION_WINS;
-			break;
-		case GT_CTF_ELIMINATION:
-			award = GAMETYPES_CTF_ELIMINATION_WINS;
-			break;
-		case GT_DOUBLE_D:
-			award = GAMETYPES_DD_WINS;
-			break;
-		case GT_DOMINATION:
-			award = GAMETYPES_DOM_WINS;
-			break;
-		default:
-			return;
-	};
-//	for ( i = 0 ; i < level.maxclients ; i++ ) {
-//		if ( if ( level.clients[ i ].pers.connected == CON_CONNECTED ) {
-			if ( g_gametype.integer >= GT_TEAM && g_ffa_gt!=1) {
-				//Team games
-				for ( i = 0 ; i < level.maxclients ; i++ ) {
-					cl = &level.clients[i];
-
-					if ( cl->sess.sessionTeam == TEAM_SPECTATOR ) {
-						continue;
-					}
-					if ( cl->pers.connected != CON_CONNECTED ) {
-						continue;
-					}
-					
-					if( cl->sess.sessionTeam == TEAM_RED && level.teamScores[TEAM_RED] > level.teamScores[TEAM_BLUE] )
-						ChallengeMessage(g_entities + cl->ps.clientNum,award);
-					
-					if( cl->sess.sessionTeam == TEAM_BLUE && level.teamScores[TEAM_RED] < level.teamScores[TEAM_BLUE] )
-						ChallengeMessage(g_entities + cl->ps.clientNum,award);
-				}
-			} else {
-				//FFA games
-				ChallengeMessage(g_entities + level.sortedClients[0],award);
-			}
-//		}
-//	}
 }
 
 /*
@@ -1808,10 +1677,6 @@ void LogExit( const char *string ) {
 
 	level.intermissionQueued = level.time;
 
-	WriteAccForAllClients();
-	
-	SendVictoryChallenge();
-	
 	// this will keep the clients from playing any voice sounds
 	// that will get cut off when the queued intermission starts
 	trap_SetConfigstring( CS_INTERMISSION, "1" );
@@ -2674,12 +2539,7 @@ void CheckTournament( void ) {
 		// if all players have arrived, start the countdown
 		if ( level.warmupTime < 0 ) {
 			// fudge by -1 to account for extra delays
-			if ( g_warmup.integer > 1 ) {
-				level.warmupTime = level.time + ( g_warmup.integer - 1 ) * 1000;
-			} else {
-				level.warmupTime = 0;
-			}
-
+			level.warmupTime = level.time + ( g_warmup.integer - 1 ) * 1000;
 			trap_SetConfigstring( CS_WARMUP, va("%i", level.warmupTime) );
 			return;
 		}
@@ -2819,21 +2679,6 @@ void CheckTeamVote( int team ) {
 
 }
 
-static void CheckEmpty ( void ) {
-	if (!g_emptyTime.integer ) {
-		return; //a time period must be set
-	}
-	if (g_humanplayers.integer > 0 || level.lastActiveTime==0) {
-		level.lastActiveTime = level.time;
-	}
-	else {
-		if (level.lastActiveTime+g_emptyTime.integer*1000 < level.time) {
-			level.lastActiveTime = level.time;
-			trap_SendConsoleCommand( EXEC_APPEND, va("%s\n",g_emptyCommand.string) );
-		} 
-	}
-}
-
 
 /*
 ==================
@@ -2851,6 +2696,10 @@ void CheckCvars( void ) {
 			trap_Cvar_Set( "g_needpass", "0" );
 		}
 	}
+
+	// leilei - i don't know where else to put this.
+
+		enableQ = cg_enableQ.integer;
 }
 
 /*
@@ -2888,8 +2737,8 @@ Advances the non-player objects in the world
 void G_RunFrame( int levelTime ) {
 	int			i;
 	gentity_t	*ent;
-	//int			msec;
-//int start, end;
+	int			msec;
+int start, end;
 
 	// if we are waiting for the level to restart, do nothing
 	if ( level.restarted ) {
@@ -2899,7 +2748,7 @@ void G_RunFrame( int levelTime ) {
 	level.framenum++;
 	level.previousTime = level.time;
 	level.time = levelTime;
-	//msec = level.time - level.previousTime;
+	msec = level.time - level.previousTime;
 
 	// get any cvar changes
 	G_UpdateCvars();
@@ -2923,7 +2772,7 @@ void G_RunFrame( int levelTime ) {
 	//
 	// go through all allocated objects
 	//
-	//start = trap_Milliseconds();
+	start = trap_Milliseconds();
 	ent = &g_entities[0];
 	for (i=0 ; i<level.num_entities ; i++, ent++) {
 		if ( !ent->inuse ) {
@@ -3014,9 +2863,9 @@ void G_RunFrame( int levelTime ) {
 	G_UnTimeShiftAllClients( NULL );
 //unlagged - backward reconciliation #2
 
-//end = trap_Milliseconds();
+end = trap_Milliseconds();
 
-//start = trap_Milliseconds();
+start = trap_Milliseconds();
 	// perform final fixups on the players
 	ent = &g_entities[0];
 	for (i=0 ; i < level.maxclients ; i++, ent++ ) {
@@ -3024,7 +2873,7 @@ void G_RunFrame( int levelTime ) {
 			ClientEndFrame( ent );
 		}
 	}
-//end = trap_Milliseconds();
+end = trap_Milliseconds();
 
 	// see if it is time to do a tournement restart
 	CheckTournament();
@@ -3054,8 +2903,6 @@ void G_RunFrame( int levelTime ) {
 	// check team votes
 	CheckTeamVote( TEAM_RED );
 	CheckTeamVote( TEAM_BLUE );
-	
-	CheckEmpty();
 
 	// for tracking changes
 	CheckCvars();

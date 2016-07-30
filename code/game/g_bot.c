@@ -47,7 +47,9 @@ typedef struct {
 static botSpawnQueue_t	botSpawnQueue[BOT_SPAWN_QUEUE_DEPTH];
 
 vmCvar_t bot_minplayers;
-vmCvar_t bot_autominplayers;
+
+vmCvar_t bot_minplayersTime;	// leilei 
+
 
 extern gentity_t	*podium1;
 extern gentity_t	*podium2;
@@ -405,11 +407,14 @@ void G_CheckMinimumPlayers( void ) {
 
 	if (level.intermissiontime) return;
 	//only check once each 10 seconds
-	if (checkminimumplayers_time > level.time - 10000) {
+	//if (checkminimumplayers_time > level.time - 10000) {
+	if (checkminimumplayers_time > level.time - (1000 + (bot_minplayersTime.integer * 100))) { // leilei - faster time
+
 		return;
 	}
 	checkminimumplayers_time = level.time;
 	trap_Cvar_Update(&bot_minplayers);
+
 	minplayers = bot_minplayers.integer;
 	if (minplayers <= 0) return;
 
@@ -982,7 +987,10 @@ void G_InitBots( qboolean restart ) {
 	G_LoadArenas();
 
 	trap_Cvar_Register( &bot_minplayers, "bot_minplayers", "0", CVAR_SERVERINFO );
-	trap_Cvar_Register( &bot_autominplayers, "bot_autominplayers", "0", CVAR_SERVERINFO );
+
+
+	// leilei - additional ones
+	trap_Cvar_Register( &bot_minplayersTime, "bot_minplayersTime", "10", CVAR_SERVERINFO );
 
 	if( g_gametype.integer == GT_SINGLE_PLAYER ) {
 		trap_GetServerinfo( serverinfo, sizeof(serverinfo) );
@@ -1024,19 +1032,5 @@ void G_InitBots( qboolean restart ) {
 		if( !restart ) {
 			G_SpawnBots( Info_ValueForKey( arenainfo, "bots" ), basedelay );
 		}
-	} else {
-	    if(bot_autominplayers.integer) {
-		//Set bot_minplayers
-		if(g_gametype.integer == GT_TOURNAMENT) {
-		    trap_Cvar_Set("bot_minplayers","2"); //Always 2 for Tourney
-		} else {
-			basedelay = MinSpawnpointCount()/2;
-			if(basedelay < 3 && (g_gametype.integer < GT_TEAM || g_ffa_gt) )
-			    basedelay = 3; //Minimum 3 for FFA
-			if(basedelay < 2 && !(g_gametype.integer < GT_TEAM || g_ffa_gt) )
-			    basedelay = 2; //Minimum 2 for TEAM
-			trap_Cvar_Set("bot_minplayers",va("%i",basedelay) );
-		}
-	    }
 	}
 }

@@ -35,6 +35,10 @@ void CG_Init( int serverMessageNum, int serverCommandSequence, int clientNum );
 void CG_Shutdown( void );
 
 
+int realVidWidth;
+int realVidHeight;		// leilei - global video hack
+
+
 /*
 ================
 vmMain
@@ -97,6 +101,7 @@ vmCvar_t	cg_runroll;
 vmCvar_t	cg_bobup;
 vmCvar_t	cg_bobpitch;
 vmCvar_t	cg_bobroll;
+vmCvar_t	cg_bobmodel;	// leilei
 vmCvar_t	cg_swingSpeed;
 vmCvar_t	cg_shadows;
 vmCvar_t	cg_gibs;
@@ -127,6 +132,7 @@ vmCvar_t	cg_footsteps;
 vmCvar_t	cg_addMarks;
 vmCvar_t	cg_brassTime;
 vmCvar_t	cg_viewsize;
+vmCvar_t	cg_viewnudge; // leilei
 vmCvar_t	cg_drawGun;
 vmCvar_t	cg_gun_frame;
 vmCvar_t	cg_gun_x;
@@ -173,7 +179,14 @@ vmCvar_t	pmove_fixed;
 vmCvar_t	pmove_msec;
 vmCvar_t        pmove_float;
 vmCvar_t	cg_pmove_msec;
-vmCvar_t	cg_cameraMode;
+
+vmCvar_t	cg_cameraEyes;
+vmCvar_t	cg_cameraEyes_Fwd;
+vmCvar_t	cg_cameraEyes_Up;
+
+vmCvar_t	cg_modelEyes_Up;
+vmCvar_t	cg_modelEyes_Right;
+vmCvar_t	cg_modelEyes_Fwd;
 vmCvar_t	cg_cameraOrbit;
 vmCvar_t	cg_cameraOrbitDelay;
 vmCvar_t	cg_timescaleFadeEnd;
@@ -188,11 +201,19 @@ vmCvar_t	cg_oldRocket;
 vmCvar_t	cg_leiEnhancement;		// ANOTHER LEILEI LINE!!!
 vmCvar_t	cg_leiBrassNoise;		// ANOTHER LEILEI LINE!!!
 vmCvar_t	cg_leiGoreNoise;		// ANOTHER LEILEI LINE!!!
-vmCvar_t	cg_leiSuperGoreyAwesome;		// ANOTHER LEILEI LINE!!!
+vmCvar_t	cg_leiSuperGoreyAwesome;	// ANOTHER LEILEI LINE!!!
+vmCvar_t	cg_leiDebug;			// ANOTHER LEILEI LINE!!!
+vmCvar_t	cg_leiChibi;			// ANOTHER LEILEI LINE!!!
 vmCvar_t	cg_oldPlasma;
 vmCvar_t	cg_trueLightning;
 vmCvar_t        cg_music;
 vmCvar_t        cg_weaponOrder;
+
+vmCvar_t        cg_leiWidescreen;		// ANOTHER LEILEI LINE!!!
+vmCvar_t        cg_deathcam;			// ANOTHER LEILEI LINE!!!
+vmCvar_t        cg_cameramode;			// ANOTHER LEILEI LINE!!!
+vmCvar_t        cg_cameraEyes;			// ANOTHER LEILEI LINE!!!
+
 
 
 #ifdef MISSIONPACK
@@ -208,6 +229,8 @@ vmCvar_t	cg_recordSPDemoName;
 vmCvar_t	cg_obeliskRespawnDelay;
 vmCvar_t	cg_enableDust;
 vmCvar_t	cg_enableBreath;
+vmCvar_t	cg_enableFS;
+vmCvar_t	cg_enableQ;
 
 //unlagged - client options
 vmCvar_t	cg_delag;
@@ -286,6 +309,7 @@ static cvarTable_t cvarTable[] = { // bk001129
 	{ &cg_zoomFov, "cg_zoomfov", "22.5", CVAR_ARCHIVE },
 	{ &cg_fov, "cg_fov", "90", CVAR_ARCHIVE },
 	{ &cg_viewsize, "cg_viewsize", "100", CVAR_ARCHIVE },
+	{ &cg_viewnudge, "cg_viewnudge", "0", CVAR_ARCHIVE },
 	{ &cg_shadows, "cg_shadows", "1", CVAR_ARCHIVE  },
 	{ &cg_gibs, "cg_gibs", "1", CVAR_ARCHIVE  },
 	{ &cg_draw2D, "cg_draw2D", "1", CVAR_ARCHIVE  },
@@ -319,6 +343,7 @@ static cvarTable_t cvarTable[] = { // bk001129
 	{ &cg_bobup , "cg_bobup", "0.005", CVAR_CHEAT },
 	{ &cg_bobpitch, "cg_bobpitch", "0.002", CVAR_ARCHIVE },
 	{ &cg_bobroll, "cg_bobroll", "0.002", CVAR_ARCHIVE },
+	{ &cg_bobmodel , "cg_bobmodel", "0", CVAR_ARCHIVE },		// leilei
 	{ &cg_swingSpeed, "cg_swingSpeed", "0.3", CVAR_CHEAT },
 	{ &cg_animSpeed, "cg_animspeed", "1", CVAR_CHEAT },
 	{ &cg_debugAnim, "cg_debuganim", "0", CVAR_CHEAT },
@@ -376,6 +401,8 @@ static cvarTable_t cvarTable[] = { // bk001129
 	{ &cg_recordSPDemoName, "ui_recordSPDemoName", "", CVAR_ARCHIVE},
 	{ &cg_hudFiles, "cg_hudFiles", "ui/hud.txt", CVAR_ARCHIVE},
 #endif
+	{ &cg_enableFS, "g_enableFS", "0", CVAR_SERVERINFO},
+	{ &cg_enableQ, "g_enableQ", "0", CVAR_SERVERINFO},
 	{ &cg_enableDust, "g_enableDust", "0", CVAR_SERVERINFO},
 	{ &cg_enableBreath, "g_enableBreath", "0", CVAR_SERVERINFO},
 	{ &cg_obeliskRespawnDelay, "g_obeliskRespawnDelay", "10", CVAR_SERVERINFO},
@@ -390,7 +417,7 @@ static cvarTable_t cvarTable[] = { // bk001129
 // this is done server-side now
 //	{ &cg_smoothClients, "cg_smoothClients", "0", CVAR_USERINFO | CVAR_ARCHIVE},
 //unlagged - smooth clients #2
-	{ &cg_cameraMode, "com_cameraMode", "0", CVAR_CHEAT},
+//	{ &cg_cameraMode, "com_cameraMode", "0", CVAR_CHEAT},
 
 	{ &pmove_fixed, "pmove_fixed", "0", CVAR_SYSTEMINFO},
 	{ &pmove_msec, "pmove_msec", "11", CVAR_SYSTEMINFO},
@@ -405,6 +432,19 @@ static cvarTable_t cvarTable[] = { // bk001129
 	{ &cg_leiGoreNoise, "cg_leiGoreNoise", "0", CVAR_ARCHIVE},					// LEILEI 
 	{ &cg_leiBrassNoise, "cg_leiBrassNoise", "0", CVAR_ARCHIVE},				// LEILEI 
 	{ &cg_leiSuperGoreyAwesome, "cg_leiSuperGoreyAwesome", "0", CVAR_ARCHIVE},	// LEILEI 
+	{ &cg_leiDebug, "cg_leiDebug", "0", CVAR_ARCHIVE},	// LEILEI 
+	{ &cg_leiChibi, "cg_leiChibi", "0", CVAR_CHEAT},	// LEILEI 
+	{ &cg_leiWidescreen, "cg_leiWidescreen", "1", CVAR_ARCHIVE},	// LEILEI 
+	{ &cg_deathcam, "cg_deathcam", "1", CVAR_ARCHIVE},				// LEILEI 
+	{ &cg_cameramode, "cg_cameramode", "0", CVAR_ARCHIVE},				// LEILEI 
+	{ &cg_cameraEyes, "cg_cameraEyes", "0", CVAR_ARCHIVE},				// LEILEI 
+	{ &cg_cameraEyes_Fwd, "cg_cameraEyes_Fwd", "3", CVAR_CHEAT},				// LEILEI 
+	{ &cg_cameraEyes_Up, "cg_cameraEyes_Up", "3", CVAR_CHEAT},				// LEILEI 
+
+	{ &cg_modelEyes_Up, "cg_modelEyes_Up", "3", CVAR_ARCHIVE},				// LEILEI 
+	{ &cg_modelEyes_Right, "cg_modelEyes_Right", "3", CVAR_ARCHIVE},				// LEILEI 
+	{ &cg_modelEyes_Fwd, "cg_modelEyes_Fwd", "3", CVAR_ARCHIVE},				// LEILEI 
+
 	{ &cg_oldPlasma, "cg_oldPlasma", "1", CVAR_ARCHIVE},
 //unlagged - client options
 	{ &cg_delag, "cg_delag", "1", CVAR_ARCHIVE | CVAR_USERINFO },
@@ -733,6 +773,13 @@ static void CG_RegisterSounds( void ) {
 	cgs.media.countPrepareTeamSound = trap_S_RegisterSound( "sound/feedback/prepare_team.wav", qtrue );
 #endif
 
+// loadingscreen
+#ifdef SCRIPTHUD
+	CG_UpdateSoundFraction( 0.33f );
+	CG_UpdateMediaFraction( 0.20f );
+#endif
+// end loadingscreen
+
 	// N_G: Another condition that makes no sense to me, see for
 	// yourself if you really meant this
 	// Sago: Makes perfect sense: Load team game stuff if the gametype is a teamgame and not an exception (like GT_LMS)
@@ -770,6 +817,13 @@ static void CG_RegisterSounds( void ) {
 			cgs.media.yourTeamTookTheFlagSound = trap_S_RegisterSound( "sound/teamplay/voc_team_1flag.wav", qtrue );
 			cgs.media.enemyTookTheFlagSound = trap_S_RegisterSound( "sound/teamplay/voc_enemy_1flag.wav", qtrue );
 		}
+
+	// loadingscreen
+	#ifdef SCRIPTHUD
+		CG_UpdateSoundFraction( 0.60f );
+		CG_UpdateMediaFraction( 0.30f );
+	#endif
+	// end loadingscreen
 
 		if ( cgs.gametype == GT_1FCTF || cgs.gametype == GT_CTF || cgs.gametype == GT_CTF_ELIMINATION ||cg_buildScript.integer ) {
 			cgs.media.youHaveFlagSound = trap_S_RegisterSound( "sound/teamplay/voc_you_flag.wav", qtrue );
@@ -913,6 +967,14 @@ static void CG_RegisterSounds( void ) {
 	}
 
 	// FIXME: only needed with item
+
+// loadingscreen
+#ifdef SCRIPTHUD
+	CG_UpdateSoundFraction( 0.85f );
+	CG_UpdateMediaFraction( 0.50f );
+#endif
+// end loadingscreen
+
 	cgs.media.flightSound = trap_S_RegisterSound( "sound/items/flight.wav", qfalse );
 	cgs.media.medkitSound = trap_S_RegisterSound ("sound/items/use_medkit.wav", qfalse);
 	cgs.media.quadSound = trap_S_RegisterSound("sound/items/damage3.wav", qfalse);
@@ -1181,12 +1243,20 @@ static void CG_RegisterGraphics( void ) {
 	cgs.media.bulletFlashModel = trap_R_RegisterModel("models/weaphits/bullet.md3");
 	cgs.media.ringFlashModel = trap_R_RegisterModel("models/weaphits/ring02.md3");
 	cgs.media.dishFlashModel = trap_R_RegisterModel("models/weaphits/boom01.md3");
-#ifdef MISSIONPACK
+#ifdef PISSIONFACK
 	cgs.media.teleportEffectModel = trap_R_RegisterModel( "models/powerups/pop.md3" );
 #else
 	cgs.media.teleportEffectModel = trap_R_RegisterModel( "models/misc/telep.md3" );
 	cgs.media.teleportEffectShader = trap_R_RegisterShader( "teleportEffect" );
 #endif
+
+// loadingscreen
+#ifdef SCRIPTHUD
+	CG_UpdateGraphicFraction( 0.20f );
+	CG_UpdateMediaFraction( 0.66f );
+#endif
+// end loadingscreen
+
 	cgs.media.kamikazeEffectModel = trap_R_RegisterModel( "models/weaphits/kamboom2.md3" );
 	cgs.media.kamikazeShockWave = trap_R_RegisterModel( "models/weaphits/kamwave.md3" );
 	cgs.media.kamikazeHeadModel = trap_R_RegisterModel( "models/powerups/kamikazi.md3" );
@@ -1200,6 +1270,12 @@ static void CG_RegisterGraphics( void ) {
 	cgs.media.medkitUsageModel = trap_R_RegisterModel( "models/powerups/regen.md3" );
 	cgs.media.heartShader = trap_R_RegisterShaderNoMip( "ui/assets/statusbar/selectedhealth.tga" );
 
+// loadingscreen
+#ifdef SCRIPTHUD
+	CG_UpdateGraphicFraction( 0.70f );
+	CG_UpdateMediaFraction( 0.85f );
+#endif
+// end loadingscreen
 
 	cgs.media.invulnerabilityPowerupModel = trap_R_RegisterModel( "models/powerups/shield/shield.md3" );
 	cgs.media.medalImpressive = trap_R_RegisterShaderNoMip( "medal_impressive" );
@@ -1234,6 +1310,27 @@ static void CG_RegisterGraphics( void ) {
 	cgs.media.lmarkbullet3 = trap_R_RegisterShader("leibulletmark3" );	
 	cgs.media.lmarkbullet4 = trap_R_RegisterShader("leibulletmark4" );	
 
+	// New 'standard' Particle effect shaders
+
+	cgs.media.alfsmoke = trap_R_RegisterShader( "psmoke-blend" );
+	cgs.media.addsmoke = trap_R_RegisterShader( "psmoke-add" );
+	cgs.media.modsmoke = trap_R_RegisterShader( "psmoke-mod" );
+	cgs.media.subsmoke = trap_R_RegisterShader( "psmoke-sub" );
+
+	cgs.media.alfshock = trap_R_RegisterShader( "pshock-blend" );
+	cgs.media.addshock = trap_R_RegisterShader( "pshock-add" );
+	cgs.media.modshock = trap_R_RegisterShader( "pshock-mod" );
+	cgs.media.subshock = trap_R_RegisterShader( "pshock-sub" );
+
+	cgs.media.alfring = trap_R_RegisterShader( "pring-blend" );
+	cgs.media.addring = trap_R_RegisterShader( "pring-add" );
+	cgs.media.modring = trap_R_RegisterShader( "pring-mod" );
+	cgs.media.subring = trap_R_RegisterShader( "pring-sub" );
+
+	cgs.media.alfball = trap_R_RegisterShader( "pball-blend" );
+	cgs.media.addball = trap_R_RegisterShader( "pball-add" );
+	cgs.media.modball = trap_R_RegisterShader( "pball-mod" );
+	cgs.media.subball = trap_R_RegisterShader( "pball-sub" );
 
 	memset( cg_items, 0, sizeof( cg_items ) );
 	memset( cg_weapons, 0, sizeof( cg_weapons ) );
@@ -1302,16 +1399,19 @@ static void CG_RegisterGraphics( void ) {
 	cgs.media.flagShaders[1] = trap_R_RegisterShaderNoMip("ui/assets/statusbar/flag_capture.tga");
 	cgs.media.flagShaders[2] = trap_R_RegisterShaderNoMip("ui/assets/statusbar/flag_missing.tga");
 
-	trap_R_RegisterModel( "models/players/sergei/lower.md3" );
-	trap_R_RegisterModel( "models/players/sergei/upper.md3" );
-	trap_R_RegisterModel( "models/players/sergei/head.md3" );
+//	trap_R_RegisterModel( "models/players/sergei/lower.md3" );
+//	trap_R_RegisterModel( "models/players/sergei/upper.md3" );
+//	trap_R_RegisterModel( "models/players/sergei/head.md3" );
 
-	trap_R_RegisterModel( "models/players/kyonshi/lower.md3" );
-	trap_R_RegisterModel( "models/players/kyonshi/upper.md3" );
-	trap_R_RegisterModel( "models/players/kyonshi/head.md3" );
+	trap_R_RegisterModel( "models/players/sorceress/lower.mdr" );
+	trap_R_RegisterModel( "models/players/sorceress/upper.mdr" );
+	trap_R_RegisterModel( "models/players/sorceress/head.md3" );
+
+//	trap_R_RegisterModel( "models/players/kyonshi/lower.md3" );
+//	trap_R_RegisterModel( "models/players/kyonshi/upper.md3" );
+//	trap_R_RegisterModel( "models/players/kyonshi/head.md3" );
 
 #endif
-	CG_ClearParticles ();
 /*
 	for (i=1; i<MAX_PARTICLES_AREAS; i++)
 	{
@@ -1358,7 +1458,7 @@ CG_RegisterClients
 static void CG_RegisterClients( void ) {
 	int		i;
 
-	CG_LoadingClient(cg.clientNum);
+	CG_LoadingClient(cg.clientNum); // leilei - test for performance.
 	CG_NewClientInfo(cg.clientNum);
 
 	for (i=0 ; i<MAX_CLIENTS ; i++) {
@@ -1587,6 +1687,186 @@ qboolean CG_Asset_Parse(int handle) {
 			cgDC.Assets.shadowFadeClamp = cgDC.Assets.shadowColor[3];
 			continue;
 		}
+		// Changed RD SCRIPTHUD
+		  if (Q_stricmp(token.string, "scrollbarSize") == 0) {
+		    if (!PC_Float_Parse(handle, &cgDC.Assets.scrollbarsize)) {
+		        return qfalse;
+		    }
+		    continue;
+		  }
+		
+		 if (Q_stricmp(token.string, "sliderWidth") == 0) {
+		   if (!PC_Float_Parse(handle, &cgDC.Assets.sliderwidth)) {
+		       return qfalse;
+		   }
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "sliderHeight") == 0) {
+		   if (!PC_Float_Parse(handle, &cgDC.Assets.sliderheight)) {
+		       return qfalse;
+		   }
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "sliderthumbWidth") == 0) {
+		   if (!PC_Float_Parse(handle, &cgDC.Assets.sliderthumbwidth)) {
+		       return qfalse;
+		   }
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "sliderthumbHeight") == 0) {
+		   if (!PC_Float_Parse(handle, &cgDC.Assets.sliderthumbheight)) {
+		       return qfalse;
+		   }
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "sliderBar") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.sliderBar = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "sliderThumb") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		        return qfalse;
+		   }
+		   cgDC.Assets.sliderThumb = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "sliderThumbSel") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.sliderThumb_sel = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "scrollBarHorz") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.scrollBarHorz = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "scrollBarVert") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.scrollBarVert = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "scrollBarThumb") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.scrollBarThumb = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "scrollBarArrowUp") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.scrollBarArrowUp = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "scrollBarArrowDown") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.scrollBarArrowDown = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "scrollBarArrowLeft") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.scrollBarArrowLeft = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "scrollBarArrowRight") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.scrollBarArrowRight = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "fxBase") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.fxBasePic = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "fxRed") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.fxPic[0] = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "fxYellow") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.fxPic[1] = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "fxGreen") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.fxPic[2] = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "fxTeal") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.fxPic[3] = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "fxBlue") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.fxPic[4] = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "fxCyan") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.fxPic[5] = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		
+		 if (Q_stricmp(token.string, "fxWhite") == 0) {
+		   if (!PC_String_Parse(handle, &tempStr)) {
+		       return qfalse;
+		   }
+		   cgDC.Assets.fxPic[6] = trap_R_RegisterShaderNoMip( tempStr);
+		   continue;
+		 }
+		   // end changed RD SCRIPTHUD
 	}
 	return qfalse; // bk001204 - why not?
 }
@@ -2049,12 +2329,15 @@ void CG_LoadHudMenu( void ) {
 	CG_LoadMenus(hudSet);
 }
 
+
+
 void CG_AssetCache( void ) {
 	//if (Assets.textFont == NULL) {
 	//  trap_R_RegisterFont("fonts/arial.ttf", 72, &Assets.textFont);
 	//}
 	//Assets.background = trap_R_RegisterShaderNoMip( ASSET_BACKGROUND );
 	//Com_Printf("Menu Size: %i bytes\n", sizeof(Menus));
+/*
 	cgDC.Assets.gradientBar = trap_R_RegisterShaderNoMip( ASSET_GRADIENTBAR );
 	cgDC.Assets.fxBasePic = trap_R_RegisterShaderNoMip( ART_FX_BASE );
 	cgDC.Assets.fxPic[0] = trap_R_RegisterShaderNoMip( ART_FX_RED );
@@ -2072,8 +2355,40 @@ void CG_AssetCache( void ) {
 	cgDC.Assets.scrollBarThumb = trap_R_RegisterShaderNoMip( ASSET_SCROLL_THUMB );
 	cgDC.Assets.sliderBar = trap_R_RegisterShaderNoMip( ASSET_SLIDER_BAR );
 	cgDC.Assets.sliderThumb = trap_R_RegisterShaderNoMip( ASSET_SLIDER_THUMB );
+*/
+
+// Changed RD SCRIPTHUD
+	cgDC.Assets.gradientBar = trap_R_RegisterShaderNoMip( ASSET_GRADIENTBAR );
+	cgDC.Assets.fxBasePic = trap_R_RegisterShaderNoMip( ART_FX_BASE );
+	cgDC.Assets.fxPic[0] = trap_R_RegisterShaderNoMip( ART_FX_RED );
+	cgDC.Assets.fxPic[1] = trap_R_RegisterShaderNoMip( ART_FX_YELLOW );
+	cgDC.Assets.fxPic[2] = trap_R_RegisterShaderNoMip( ART_FX_GREEN );
+	cgDC.Assets.fxPic[3] = trap_R_RegisterShaderNoMip( ART_FX_TEAL );
+	cgDC.Assets.fxPic[4] = trap_R_RegisterShaderNoMip( ART_FX_BLUE );
+	cgDC.Assets.fxPic[5] = trap_R_RegisterShaderNoMip( ART_FX_CYAN );
+	cgDC.Assets.fxPic[6] = trap_R_RegisterShaderNoMip( ART_FX_WHITE );
+	cgDC.Assets.scrollBarHorz = trap_R_RegisterShaderNoMip( ASSET_SCROLLBAR );
+	cgDC.Assets.scrollBarVert = trap_R_RegisterShaderNoMip( ASSET_SCROLLBAR );
+	cgDC.Assets.scrollBarArrowDown = trap_R_RegisterShaderNoMip( ASSET_SCROLLBAR_ARROWDOWN );
+	cgDC.Assets.scrollBarArrowUp = trap_R_RegisterShaderNoMip( ASSET_SCROLLBAR_ARROWUP );
+	cgDC.Assets.scrollBarArrowLeft = trap_R_RegisterShaderNoMip( ASSET_SCROLLBAR_ARROWLEFT );
+	cgDC.Assets.scrollBarArrowRight = trap_R_RegisterShaderNoMip( ASSET_SCROLLBAR_ARROWRIGHT );
+	cgDC.Assets.scrollBarThumb = trap_R_RegisterShaderNoMip( ASSET_SCROLL_THUMB );
+	cgDC.Assets.sliderBar = trap_R_RegisterShaderNoMip( ASSET_SLIDER_BAR );
+	cgDC.Assets.sliderThumb = trap_R_RegisterShaderNoMip( ASSET_SLIDER_THUMB );
+	cgDC.Assets.sliderThumb_sel = trap_R_RegisterShaderNoMip( ASSET_SLIDER_THUMB_SEL );
+	cgDC.Assets.scrollbarsize = SCROLLBAR_SIZE;
+	cgDC.Assets.sliderwidth = SLIDER_WIDTH;
+	cgDC.Assets.sliderheight = SLIDER_HEIGHT;
+	cgDC.Assets.sliderthumbwidth = SLIDER_THUMB_WIDTH;
+	cgDC.Assets.sliderthumbheight = SLIDER_THUMB_HEIGHT;
+// end changed RD SCRIPTHUD
+
 }
 #endif
+
+int wideAdjustX; // leilei - dirty widescreen hack
+
 /*
 =================
 CG_Init
@@ -2107,7 +2422,13 @@ void CG_Init( int serverMessageNum, int serverCommandSequence, int clientNum ) {
 	CG_RegisterCvars();
 
 	CG_InitConsoleCommands();
-
+// loadingscreen
+#ifdef SCRIPTHUD
+	String_Init();
+	CG_AssetCache();
+	CG_LoadHudMenu();      // load new hud stuff
+	trap_Cvar_Set( "ui_loading", "1" );
+#endif
 	cg.weaponSelect = WP_MACHINEGUN;
 
 	cgs.redflag = cgs.blueflag = -1; // For compatibily, default to unset for
@@ -2118,6 +2439,45 @@ void CG_Init( int serverMessageNum, int serverCommandSequence, int clientNum ) {
 	trap_GetGlconfig( &cgs.glconfig );
 	cgs.screenXScale = cgs.glconfig.vidWidth / 640.0;
 	cgs.screenYScale = cgs.glconfig.vidHeight / 480.0;
+
+	realVidWidth = cgs.glconfig.vidWidth;
+	realVidHeight = cgs.glconfig.vidHeight;
+
+			// leilei - widescreen correction
+
+	{
+		float resbias, resbiasy;
+		float rex, rey, rias;
+		int newresx, newresy;
+		float adjustx, adjusty;
+
+		rex = 640.0f / realVidWidth;
+		rey = 480.0f / realVidHeight;
+		
+		newresx = 640.0f * (rex);
+		newresy = 480.0f * (rey);
+	
+		newresx = realVidWidth * rey;
+		newresy = realVidHeight * rey;
+	
+		resbias  = 0.5 * ( newresx -  ( newresy * (640.0/480.0) ) );
+		resbiasy = 0.5 * ( newresy -  ( newresx * (640.0/480.0) ) );
+
+
+		wideAdjustX = resbias;
+
+	}
+	if ( cgs.glconfig.vidWidth * 480 > cgs.glconfig.vidHeight * 640 ) {
+		// wide screen
+		cgs.screenXBias = 0.5 * ( cgs.glconfig.vidWidth - ( cgs.glconfig.vidHeight * (640.0/480.0) ) );
+		cgs.screenXScale = cgs.screenYScale;
+	}
+	else {
+		// no wide screen
+		cgs.screenXBias = 0;
+	}
+
+
 
 	// get the gamestate from the client system
 	trap_GetGameState( &cgs.gameState );
@@ -2134,16 +2494,28 @@ void CG_Init( int serverMessageNum, int serverCommandSequence, int clientNum ) {
 	CG_ParseServerinfo();
 
 	// load the new map
+// load the new map
+#ifndef SCRIPTHUD
 	CG_LoadingString( "collision map" );
-
+#endif
 	trap_CM_LoadMap( cgs.mapname );
 
 #ifdef MISSIONPACK
 	String_Init();
+	CG_LoadHudMenu();      // load new hud stuff
 #endif
 
 	cg.loading = qtrue;		// force players to load instead of defer
-
+#ifdef SCRIPTHUD
+	CG_RegisterSounds();
+	CG_UpdateSoundFraction( 1.0f );
+	CG_UpdateMediaFraction( 0.60f );
+	CG_RegisterGraphics();
+	CG_UpdateGraphicFraction( 1.0f );
+	CG_UpdateMediaFraction( 0.90f );
+	CG_RegisterClients();		// if low on memory, some clients will be deferred
+	CG_UpdateMediaFraction( 1.0f );
+#else
 	CG_LoadingString( "sounds" );
 
 	CG_RegisterSounds();
@@ -2155,6 +2527,7 @@ void CG_Init( int serverMessageNum, int serverCommandSequence, int clientNum ) {
 	CG_LoadingString( "clients" );
 
 	CG_RegisterClients();		// if low on memory, some clients will be deferred
+#endif
 
 #ifdef MISSIONPACK
 	CG_AssetCache();
@@ -2189,6 +2562,16 @@ void CG_Init( int serverMessageNum, int serverCommandSequence, int clientNum ) {
 	addChallenge(GENERAL_TEST);
 
 	trap_S_ClearLoopingSounds( qtrue );
+#ifdef SCRIPTHUD
+	trap_Cvar_Set( "ui_loading", "0" );
+	cg.consoleValid = qtrue;
+#endif
+
+	// leilei - particles
+
+//	CG_InitParticles();
+//	CG_QlearParticles ();
+// end loadingscreen
 }
 
 /*

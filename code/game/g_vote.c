@@ -29,7 +29,7 @@ allowedVote
 ==================
  */
 #define MAX_VOTENAME_LENGTH 14 //currently the longest string is "/map_restart/\0" (14 chars)
-int allowedVote(const char *commandStr) {
+int allowedVote(char *commandStr) {
     char tempStr[MAX_VOTENAME_LENGTH];
     int length;
     char voteNames[MAX_CVAR_VALUE_STRING];
@@ -80,7 +80,7 @@ t_mappage getMappage(int page) {
 		if(token[0]==0 && page == 0) {
 			//First page empty
 			result.pagenumber = -1;
-            trap_FS_FCloseFile(file);
+                        trap_FS_FCloseFile(file);
 			return result;
 		}
 		//Skip the first pages
@@ -89,7 +89,7 @@ t_mappage getMappage(int page) {
 		}
 		if(!token || token[0]==0) {
 			//Page empty, return to first page
-            trap_FS_FCloseFile(file);
+                        trap_FS_FCloseFile(file);
 			return getMappage(0);
 		}
 		//There is an actual page:
@@ -98,7 +98,7 @@ t_mappage getMappage(int page) {
 			Q_strncpyz(result.mapname[i],token,MAX_MAPNAME);
 			token = COM_Parse(&pointer);
 		}
-        trap_FS_FCloseFile(file);
+                trap_FS_FCloseFile(file);
 		return result;
 	}
         //There is no votemaps.cfg file, find filelist of maps
@@ -126,7 +126,7 @@ allowedMap
 ==================
  */
 
-int allowedMap(const char *mapname) {
+int allowedMap(char *mapname) {
     int length;
     fileHandle_t	file;           //To check that the map actually exists.
     char                buffer[MAX_MAPS_TEXT];
@@ -173,7 +173,7 @@ allowedGametype
 ==================
  */
 #define MAX_GAMETYPENAME_LENGTH 5 //currently the longest string is "/12/\0" (5 chars)
-int allowedGametype(const char *gametypeStr) {
+int allowedGametype(char *gametypeStr) {
     char tempStr[MAX_GAMETYPENAME_LENGTH];
     int length;
     char voteGametypes[MAX_CVAR_VALUE_STRING];
@@ -304,8 +304,6 @@ t_customvote getCustomVote(char* votecommand) {
     memset(&buffer,0,sizeof(buffer));
 
     trap_FS_Read(&buffer,sizeof(buffer),file);
-	
-	trap_FS_FCloseFile(file);
 
     pointer = buffer;
 

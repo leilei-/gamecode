@@ -186,8 +186,6 @@ typedef int		clipHandle_t;
 #define	MAX_QINT			0x7fffffff
 #define	MIN_QINT			(-MAX_QINT-1)
 
-#define ARRAY_LEN(x)			(sizeof(x) / sizeof(*(x)))
-#define STRARRAY_LEN(x)			(ARRAY_LEN(x) - 1)
 
 // angle indexes
 #define	PITCH				0		// up / down
@@ -466,7 +464,7 @@ void ByteToDir( int b, vec3_t dir );
 typedef struct {
 	float	v[3];
 } vec3struct_t;
-#define VectorCopy(a,b)	(*(vec3struct_t *)b=*(const vec3struct_t *)a)
+#define VectorCopy(a,b)	(*(vec3struct_t *)b=*(vec3struct_t *)a)
 #endif
 #endif
 
@@ -691,9 +689,6 @@ typedef enum {
 	FS_SEEK_END,
 	FS_SEEK_SET
 } fsOrigin_t;
-
-
-void Q_StrToLower(char *io_string);
 
 //=============================================
 
@@ -1311,6 +1306,5 @@ typedef enum _flag_status {
 
 #define CDKEY_LEN 16
 #define CDCHKSUM_LEN 2
-
 
 #endif	// __Q_SHARED_H

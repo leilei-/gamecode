@@ -210,7 +210,7 @@ void AddTeamScore(vec3_t origin, int team, int score) {
 OnSameTeam
 ==============
 */
-qboolean OnSameTeam( const gentity_t *ent1, const gentity_t *ent2 ) {
+qboolean OnSameTeam( gentity_t *ent1, gentity_t *ent2 ) {
 	if ( !ent1->client || !ent2->client ) {
 		return qfalse;
 	}
@@ -279,7 +279,7 @@ void Team_SetFlagStatus( int team, flagStatus_t status ) {
 	}
 }
 
-void Team_CheckDroppedItem( const gentity_t *dropped ) {
+void Team_CheckDroppedItem( gentity_t *dropped ) {
 	if( dropped->item->giTag == PW_REDFLAG ) {
 		Team_SetFlagStatus( TEAM_RED, FLAG_DROPPED );
 	}
@@ -1626,39 +1626,6 @@ gentity_t *SelectRandomTeamDDSpawnPoint( team_t team ) {
 	return spots[ selection ];
 }
 
-gentity_t *SelectRandomTeamDomSpawnPoint( team_t team ) {
-	gentity_t	*spot;
-	int			count;
-	int			selection;
-	gentity_t	*spots[MAX_TEAM_SPAWN_POINTS];
-	char		*classname;
-
-	if(team == TEAM_RED)
-		classname = "info_player_dom_red";
-	else
-		classname = "info_player_dom_blue";
-
-	count = 0;
-
-	spot = NULL;
-
-	while ((spot = G_Find (spot, FOFS(classname), classname)) != NULL) {
-		if ( SpotWouldTelefrag( spot ) ) {
-			continue;
-		}
-		spots[ count ] = spot;
-		if (++count == MAX_TEAM_SPAWN_POINTS)
-			break;
-	}
-
-	if ( !count ) {	// no spots that won't telefrag
-		return G_Find( NULL, FOFS(classname), classname);
-	}
-
-	selection = rand() % count;
-	return spots[ selection ];
-}
-
 
 /*
 ===========
@@ -1708,28 +1675,6 @@ gentity_t *SelectDoubleDominationSpawnPoint ( team_t team, vec3_t origin, vec3_t
 	return spot;
 }
 
-/*
-===========
-SelectDominationSpawnPoint
-
-============
-*/
-gentity_t *SelectDominationSpawnPoint ( team_t team, vec3_t origin, vec3_t angles ) {
-	gentity_t	*spot;
-
-	spot = SelectRandomTeamDomSpawnPoint( team );
-
-	if (!spot) {
-		return SelectSpawnPoint( vec3_origin, origin, angles );
-	}
-
-	VectorCopy (spot->s.origin, origin);
-	origin[2] += 9;
-	VectorCopy (spot->s.angles, angles);
-
-	return spot;
-}
-
 /*---------------------------------------------------------------------------*/
 
 static int QDECL SortClients( const void *a, const void *b ) {
@@ -1755,32 +1700,17 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 	int			cnt;
 	int			h, a, w;
 	int			clients[TEAM_MAXOVERLAY];
-	int			team;
 
 	if ( ! ent->client->pers.teamInfo )
 		return;
-
-	// send team info to spectator for team of followed client
-	if (ent->client->sess.sessionTeam == TEAM_SPECTATOR) {
-		if ( ent->client->sess.spectatorState != SPECTATOR_FOLLOW
-			|| ent->client->sess.spectatorClient < 0 ) {
-			return;
-		}
-		team = g_entities[ ent->client->sess.spectatorClient ].client->sess.sessionTeam;
-	} else {
-		team = ent->client->sess.sessionTeam;
-	}
-
-	if (team != TEAM_RED && team != TEAM_BLUE) {
-		return;
-	}
 
 	// figure out what client should be on the display
 	// we are limited to 8, but we want to use the top eight players
 	// but in client order (so they don't keep changing position on the overlay)
 	for (i = 0, cnt = 0; i < g_maxclients.integer && cnt < TEAM_MAXOVERLAY; i++) {
 		player = g_entities + level.sortedClients[i];
-		if (player->inuse && player->client->sess.sessionTeam == team ) {
+		if (player->inuse && player->client->sess.sessionTeam == 
+			ent->client->sess.sessionTeam ) {
 			clients[cnt++] = level.sortedClients[i];
 		}
 	}
@@ -1794,7 +1724,8 @@ void TeamplayInfoMessage( gentity_t *ent ) {
 
 	for (i = 0, cnt = 0; i < g_maxclients.integer && cnt < TEAM_MAXOVERLAY; i++) {
 		player = g_entities + i;
-		if (player->inuse && player->client->sess.sessionTeam == team ) {
+		if (player->inuse && player->client->sess.sessionTeam == 
+			ent->client->sess.sessionTeam ) {
 
 			h = player->client->ps.stats[STAT_HEALTH];
 			a = player->client->ps.stats[STAT_ARMOR];
@@ -1856,7 +1787,7 @@ void CheckTeamStatus(void) {
 				continue;
 			}
 
-			if (ent->inuse) {
+			if (ent->inuse && (ent->client->sess.sessionTeam == TEAM_RED ||	ent->client->sess.sessionTeam == TEAM_BLUE)) {
 				TeamplayInfoMessage( ent );
 			}
 		}
@@ -2183,7 +2114,7 @@ void SP_team_neutralobelisk( gentity_t *ent ) {
 CheckObeliskAttack
 ================
 */
-qboolean CheckObeliskAttack( const gentity_t *obelisk, const gentity_t *attacker ) {
+qboolean CheckObeliskAttack( gentity_t *obelisk, gentity_t *attacker ) {
 	gentity_t	*te;
 
 	// if this really is an obelisk

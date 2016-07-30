@@ -13,7 +13,7 @@ copy windows_scripts\cgame_mp.q3asm windows\build\cgame.q3asm
 set LIBRARY=
 set INCLUDE=
 
-set cc=lcc -DMISSIONPACK -DQ3_VM -S -Wf-target=bytecode -Wf-g -I..\..\..\code\cgame -I..\..\..\code\ui -I..\..\..\code\qcommon %1
+set cc=lcc -DMISSIONPACK -DSCRIPTHUD -DQ3_VM -S -Wf-target=bytecode -Wf-g -I..\..\..\code\cgame -I..\..\..\code\ui -I..\..\..\code\qcommon %1
 
 cd windows\build\cgame
 
@@ -28,6 +28,7 @@ cd windows\build\cgame
 %cc%  ../../../code/cgame/cg_localents.c
 %cc%  ../../../code/cgame/cg_main.c
 %cc%  ../../../code/cgame/cg_marks.c
+%cc%  ../../../code/cgame/cg_lfx.c
 %cc%  ../../../code/cgame/cg_newdraw.c
 %cc%  ../../../code/cgame/cg_particles.c
 %cc%  ../../../code/cgame/cg_players.c
